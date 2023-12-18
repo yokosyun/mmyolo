@@ -72,6 +72,12 @@ class YOLOv7Backbone(BaseBackbone):
         block_ratio=0.5,
         num_blocks=2,
         num_convs_in_block=2)
+    _w2_no_change_channel = dict(
+        type='ELANBlock',
+        middle_ratio=0.5,
+        block_ratio=0.5,
+        num_blocks=3,
+        num_convs_in_block=2)
     _e_no_change_channel = dict(
         type='ELANBlock',
         middle_ratio=0.4,
@@ -92,6 +98,44 @@ class YOLOv7Backbone(BaseBackbone):
         num_blocks=3,
         num_convs_in_block=2)
 
+    fused_mbconv_g1_e1 = dict(
+        type="GroupFusedMBConv",
+        groups=1,
+        expand_ratio=1,
+    )
+    fused_mbconv_g1_e2 = dict(
+        type="GroupFusedMBConv",
+        groups=1,
+        expand_ratio=2,
+    )
+    fused_mbconv_g1_e4 = dict(
+        type="GroupFusedMBConv",
+        groups=1,
+        expand_ratio=4,
+    )
+
+    fused_mbconv_g2_e1 = dict(
+        type="GroupFusedMBConv",
+        groups=2,
+        expand_ratio=1,
+    )
+    fused_mbconv_g4_e1 = dict(
+        type="GroupFusedMBConv",
+        groups=4,
+        expand_ratio=1,
+    )
+    fused_mbconv_g8_e1 = dict(
+        type="GroupFusedMBConv",
+        groups=8,
+        expand_ratio=1,
+    )
+
+    basic_k3_g1 = dict(
+        type="BasicBlock",
+        groups=1,
+    )
+    
+
     # From left to right:
     # in_channels, out_channels, Block_params
     arch_settings = {
@@ -106,14 +150,33 @@ class YOLOv7Backbone(BaseBackbone):
               [320, 640, _x_expand_channel_2x],
               [640, 1280, _x_expand_channel_2x],
               [1280, 1280, _x_no_change_channel]],
-        'W':
-        [[64, 128, _w_no_change_channel], [128, 256, _w_no_change_channel],
-         [256, 512, _w_no_change_channel], [512, 768, _w_no_change_channel],
-         [768, 1024, _w_no_change_channel]],
+        # 'W':
+        # [[64, 128, _w_no_change_channel], [128, 256, _w_no_change_channel],
+        #  [256, 512, _w_no_change_channel], [512, 768, _w_no_change_channel],
+        #  [768, 1024, _w_no_change_channel]],
+        'W': [
+            [32, 64, basic_k3_g1],
+            [64, 128, fused_mbconv_g1_e2],
+            [128, 256, fused_mbconv_g1_e2],
+            [256, 512, _w2_no_change_channel],
+            [512, 1024, _w_no_change_channel],
+        ],
+        # 'W':
+        # [[64, 128, basic_k3_g1], [128, 256, fused_mbconv_g1_e2],
+        #  [256, 512, fused_mbconv_g1_e1], [512, 768, _w_no_change_channel],
+        #  [768, 1024, _w_no_change_channel]],
         'E':
-        [[80, 160, _e_no_change_channel], [160, 320, _e_no_change_channel],
-         [320, 640, _e_no_change_channel], [640, 960, _e_no_change_channel],
+        [[80, 160, basic_k3_g1], [160, 320, fused_mbconv_g1_e2],
+         [320, 640, fused_mbconv_g1_e1], [640, 960, _e_no_change_channel],
          [960, 1280, _e_no_change_channel]],
+        # 'E':
+        # [[80, 160, basic_k3_g1], [160, 320, fused_mbconv_g1_e4],
+        #  [320, 640, fused_mbconv_g1_e2], [640, 960, fused_mbconv_g1_e1],
+        #  [960, 1280, _e_no_change_channel]],
+        # 'E':
+        # [[80, 160, basic_k3_g1], [160, 320, fused_mbconv_g1_e4],
+        #  [320, 640, fused_mbconv_g1_e2], [640, 960, fused_mbconv_g2_e1],
+        #  [960, 1280, fused_mbconv_g4_e1]],
         'D': [[96, 192,
                _d_no_change_channel], [192, 384, _d_no_change_channel],
               [384, 768, _d_no_change_channel],
@@ -204,7 +267,7 @@ class YOLOv7Backbone(BaseBackbone):
             stem = Focus(
                 3,
                 int(self.arch_setting[0][0] * self.widen_factor),
-                kernel_size=3,
+                kernel_size=7,
                 norm_cfg=self.norm_cfg,
                 act_cfg=self.act_cfg)
         return stem
